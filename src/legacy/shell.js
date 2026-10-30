@@ -22,7 +22,7 @@ const ICONS = {
 };
 const ITEMS = [
   ["studio", "Studio", "/"], ["content", "Kho content", "/admin#/content"], ["footage", "Kho footage", "/admin#/footage"],
-  ["jobs", "Job · tự động", "/admin#/jobs"], ["review", "Duyệt", "/admin#/review"], ["exports", "Đã xuất", "/admin#/exports"],
+  ["jobs", "Job · tự động", "/admin#/jobs"], ["review", "Duyệt", "/admin#/review"], ["exports", "Đã xuất", "/admin#/exports"], ["inventory", "Kho hàng", "/admin#/inventory"], ["social", "Đăng & hiệu quả", "/admin#/social"], ["research", "Nghiên cứu đối thủ", "/admin#/research"], ["workflow", "Workflow", "/admin#/workflow"], ["fx", "FX · template · nhạc", "/admin#/fx"],
 ];
 const svg = (name) => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -44,7 +44,8 @@ export function mountRail(active) {
   const onAdmin = location.pathname.startsWith("/admin");
   const href = (h) => (onAdmin && h.startsWith("/admin#") ? h.slice(6) : h);
   const item = ([key, tip, h]) => `<a class="ri${key === active ? " on" : ""}" href="${href(h)}" data-key="${key}" data-tip="${tip}" aria-label="${tip}"${key === active ? ' aria-current="page"' : ""}>${svg(key)}${key === "review" ? '<span class="nb" id="nb-review"></span>' : key === "content" ? '<span class="nb" id="nb-content"></span>' : ""}</a>`;
-  el.innerHTML = `<a class="mark" href="/" aria-label="VCB Traffic"><img src="/web/logo-mark.png" alt="" width="22" height="22"></a>${ITEMS.map(item).join("")}<div class="grow"></div>
+  el.innerHTML = `<a class="mark" href="/" aria-label="VCB Video Agent"><img src="/web/logo-mark.png" alt="" width="22" height="22"></a>${ITEMS.map(item).join("")}<div class="grow"></div>
+    ${item(["ai", "AI · hệ thống", "/admin#/ai"])}
     <button class="ri" id="theme-btn" type="button" data-tip="Sáng / tối" aria-label="Đổi giao diện sáng tối">${svg(theme() === "dark" ? "sun" : "moon")}</button>
     <button class="ri lang-btn" id="lang-btn" type="button" data-tip="Ngôn ngữ hệ thống" aria-label="Ngôn ngữ hệ thống" aria-haspopup="menu" data-noi18n>${(LANGS.find((x) => x[0] === lang()) || LANGS[0])[2]}</button>`;
   document.getElementById("theme-btn").addEventListener("click", () => setTheme(theme() === "dark" ? "light" : "dark"));
@@ -72,12 +73,12 @@ export function langMenu(anchor) {
 }
 
 // Phone: a bottom tab bar replaces the rail (CSS shows one or the other). Screens without a tab live under "Thêm".
-const TABS = [["studio", "Studio", "/"], ["content", "Content", "/admin#/content"], ["jobs", "Job", "/admin#/jobs"], ["review", "Duyệt", "/admin#/review"], ["exports", "Đã xuất", "/admin#/exports"]];
-const tabOf = (key) => (TABS.some(([k]) => k === key) ? key : "studio");
+const TABS = [["studio", "Studio", "/"], ["jobs", "Job", "/admin#/jobs"], ["social", "Đăng", "/admin#/social"], ["exports", "Đã xuất", "/admin#/exports"], ["more", "Thêm", "/admin#/more"]];
+const tabOf = (key) => (TABS.some(([k]) => k === key) ? key : "more");
 function mountTabbar(active, href) {
   let el = document.getElementById("tabbar");
   if (!el) { el = document.createElement("nav"); el.id = "tabbar"; el.className = "tabbar"; el.setAttribute("aria-label", "Điều hướng chính"); document.body.append(el); }
-  el.innerHTML = TABS.map(([k, l, h]) => `<a class="tb" href="${href(h)}" data-tab="${k}"><span class="tbi">${svg(k)}</span>${l}</a>`).join("");
+  el.innerHTML = TABS.map(([k, l, h]) => `<a class="tb" href="${href(h)}" data-tab="${k}"><span class="tbi">${svg(k)}</span>${l}${k === "more" ? '<span class="nb" id="nb-more"></span>' : ""}</a>`).join("");
   setTab(active);
 }
 function setTab(key) {

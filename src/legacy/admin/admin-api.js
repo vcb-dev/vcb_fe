@@ -99,6 +99,12 @@ export const api = {
   workflowSave: (id, data) => call(id ? `/api/workflows/${encodeURIComponent(id)}` : "/api/workflows", { method: id ? "PUT" : "POST", body: JSON.stringify(data) }),
   workflowDelete: (id) => call(`/api/workflows/${encodeURIComponent(id)}`, { method: "DELETE" }),
   workflowRun: (id) => call(`/api/workflows/${encodeURIComponent(id)}/run`, { method: "POST" }),
+  workflowBlocks: () => call("/api/workflow-blocks?v=2"),
+  workflowGroupSave: (id, data) => call(id ? `/api/workflow-block-groups/${encodeURIComponent(id)}` : "/api/workflow-block-groups", { method: id ? "PUT" : "POST", body: JSON.stringify(data) }),
+  workflowGroupDelete: (id) => call(`/api/workflow-block-groups/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  workflowItemAdd: (gid, data) => call(`/api/workflow-block-groups/${encodeURIComponent(gid)}/items`, { method: "POST", body: JSON.stringify(data) }),
+  workflowBlockSave: (id, data) => call(`/api/workflow-blocks/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(data) }),
+  workflowBlockDelete: (id) => call(`/api/workflow-blocks/${encodeURIComponent(id)}`, { method: "DELETE" }),
   socialAutofill: () => call("/api/social/autofill", { method: "POST" }),
   socialRefreshPages: () => call("/api/social/meta/refresh", { method: "POST" }),
   socialSysToken: (token) => call("/api/social/meta/token", { method: "POST", body: JSON.stringify({ token }) }),
@@ -139,6 +145,7 @@ export const api = {
   automationPrepareContent: (body) => call("/api/automation/prepare-content", { method: "POST", body: JSON.stringify(body) }),
   automationCancel: () => call("/api/automation/cancel", { method: "POST" }),
   tagDecision: (clipId, body) => call(`/api/review/tags/${encodeURIComponent(clipId)}`, { method: "POST", body: JSON.stringify(body) }),
+  setClipStep: (clipId, craft_step) => call(`/api/clips/${encodeURIComponent(clipId)}/craft-step`, { method: "POST", body: JSON.stringify({ craft_step }) }),
 };
 
 export const STATE = {

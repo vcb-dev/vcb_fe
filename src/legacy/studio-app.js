@@ -52,7 +52,17 @@ let started = false;
 export async function startStudio() {
   if (started) return;
   started = true;
-  store.boot = await api.bootstrap();
+  const tabs = $("lib-tabs");
+  if (tabs && !tabs.childElementCount) {
+    tabs.innerHTML = '<span class="muted" style="padding:10px 12px">Đang tải Studio…</span>';
+  }
+  try {
+    store.boot = await api.bootstrap();
+  } catch (err) {
+    started = false;
+    if (tabs) tabs.innerHTML = "";
+    throw err;
+  }
   initLibrary();
   initInspector();
   initPlayer();

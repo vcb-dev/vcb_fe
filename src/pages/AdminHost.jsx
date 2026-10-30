@@ -5,10 +5,17 @@ import { refreshRailBadges } from "../legacy/shell.js";
 
 const SCREENS = {
   content: () => import("../legacy/admin/screen-content.js"),
-  footage: () => import("../legacy/admin/screen-footage.js"),
-  jobs: () => import("../legacy/admin/screen-jobs.js"),
+  footage: () => import("../legacy/admin/screen-footage.js?sku"),
+  jobs: () => import("../legacy/admin/screen-jobs.js?music"),
   review: () => import("../legacy/admin/screen-review.js"),
   exports: () => import("../legacy/admin/screen-exports.js"),
+  social: () => import("../legacy/admin/screen-social.js"),
+  workflow: () => import("../legacy/admin/screen-workflow.js?blk-edit"),
+  fx: () => import("../legacy/admin/screen-fx.js?fill"),
+  ai: () => import("../legacy/admin/screen-ai.js?blk-ico"),
+  more: () => import("../legacy/admin/screen-more.js"),
+  inventory: () => import("../legacy/admin/screen-inventory.js"),
+  research: () => import("../legacy/admin/screen-research.js"),
 };
 const ALIAS = { g2: "review" };
 const same = (a, b) => a.length === b.length && a.every((item, index) => item === b[index]);
@@ -20,6 +27,10 @@ async function openScreen(view, bar, state, pathname) {
   const name = ALIAS[parts[0]] || parts[0] || "content";
   const key = SCREENS[name] ? name : "content";
   const params = parts.slice(1).map(decodeURIComponent);
+  if (key === "footage" || key === "fx" || key === "jobs" || key === "workflow") {
+    const stale = state.alive.get(key);
+    if (stale) { stale.cleanup?.(); stale.stage.remove(); state.alive.delete(key); }
+  }
   const cached = state.alive.get(key);
   if (cached) {
     let ok = same(cached.params, params);

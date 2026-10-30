@@ -8,6 +8,13 @@ const SCREENS = {
   jobs: () => import("./screen-jobs.js"),
   review: () => import("./screen-review.js"),
   exports: () => import("./screen-exports.js"),
+  social: () => import("./screen-social.js"),
+  workflow: () => import("./screen-workflow.js"),
+  fx: () => import("./screen-fx.js"),
+  ai: () => import("./screen-ai.js"),
+  more: () => import("./screen-more.js"),
+  inventory: () => import("./screen-inventory.js"),
+  research: () => import("./screen-research.js"),
 };
 const ALIAS = { g2: "review" };                      // old links (#/g2/<job>) open the merged review screen
 

@@ -6,9 +6,9 @@ import { money } from "../i18n.js";
 const DAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];          // Python weekday 0 = thứ 2
 const MODES = { mix: "Kho trước, thiếu thì AI viết", library: "Chỉ kho content", ai: "AI viết mới toàn bộ" };
 const MODE_HINT = {
-  mix: "Lấy kịch bản kho cùng loại. Thiếu thì bấm viết — AI ra bài đúng ngôn ngữ xuất (nhẫn này / vòng này / dây chuyền này). Đọc rồi duyệt.",
-  library: "Chỉ dùng bài có sẵn trong Kho, cùng loại (nhẫn với nhẫn, vòng với vòng). Không viết mới.",
-  ai: "Bấm viết: AI ra 1 bài mới đúng ngôn ngữ xuất, kiểu nhẫn này / vòng này / dây chuyền này. Đọc bên dưới rồi duyệt.",
+  mix: "1 bài / danh mục (nhẫn, dây chuyền, bông tai…). 5 video nhẫn + 10 video dây chuyền = 2 bài. Thiếu thì bấm viết. Đọc rồi duyệt.",
+  library: "Chỉ dùng bài kho cùng danh mục (nhẫn với nhẫn). Không viết mới.",
+  ai: "Bấm viết: AI ra 1 bài cho danh mục đang thiếu, dùng chung mọi video loại đó. Đọc rồi duyệt.",
 };
 const COLS = [
   ["Nháp", ["draft", "created"], ""], ["Đang dựng", ["rendering"], "run"], ["Chờ duyệt", ["waiting_g2", "missing_asset"], "warn"],
@@ -21,6 +21,8 @@ let drawer = false;
 
 const checks = (name, items, on, label = (x) => x, value = (x) => x) => items.map((x) =>
   `<label class="chip" style="cursor:pointer;min-height:32px"><input type="checkbox" class="chk" style="width:16px;height:16px" name="${name}" value="${esc(String(value(x)))}" ${on.includes(value(x)) ? "checked" : ""}> ${esc(label(x))}</label>`).join("");
+const radios = (name, items, on, label = (x) => x, value = (x) => x) => items.map((x) =>
+  `<label class="chip" style="cursor:pointer;min-height:32px"><input type="radio" class="chk" style="width:16px;height:16px" name="${name}" value="${esc(String(value(x)))}" ${value(x) === on ? "checked" : ""}> ${esc(label(x))}</label>`).join("");
 
 const A4_SLOTS = [
   { role: "Sản phẩm", seconds: 5, from: "product", variant: "hero" },
@@ -227,10 +229,12 @@ function renderA4Route(auto, visible = true) {
 
 function planForm(auto, s) {
   s = s || { name: "Lịch tự động", enabled: true, times: ["08:00"], days: [0, 1, 2, 3, 4, 5, 6], count: 5, skus: [],
-    families: ["A4"], topics: [], content_mode: "mix", auto_render: false, langs: ["vi"], voice: "", a4_line: true, hook_text: false };
+    families: ["A4"], topics: [], content_mode: "mix", auto_render: false, langs: ["vi"], voice: "", music_track: "", a4_line: true, hook_text: false };
   initA4Draft(s, auto);
   const prods = auto.products;
   const langs = s.langs || ["vi"];
+  const lang = langs[0] || "vi";
+  const fam = (s.families && s.families[0]) || "A4";
   const curVoice = s.voice || "";
   const voiceList = (auto.voices && auto.voices.length) ? auto.voices : [
     { id: "HuyK_VN_4720ecdb", label: "HuyK VN · giọng Việt chính", lang: "vi" },
@@ -244,31 +248,37 @@ function planForm(auto, s) {
   ).join("");
   const langChips = (auto.languages || [{ code: "vi", label: "Tiếng Việt", voice: true, outro: true }]).map((l) =>
     `<label class="chip" style="cursor:pointer;min-height:32px" title="${l.voice ? "Có giọng HuyK" : "Chưa có giọng HuyK cho ngôn ngữ này"}${l.outro ? " · có outro" : ""}">
-      <input type="checkbox" class="chk" style="width:16px;height:16px" name="lang" value="${esc(l.code)}" ${langs.includes(l.code) ? "checked" : ""}>
+      <input type="radio" class="chk" style="width:16px;height:16px" name="lang" value="${esc(l.code)}" ${lang === l.code ? "checked" : ""}>
       <span class="mono small">${esc(l.code.toUpperCase())}</span> ${esc(l.label)}${!l.voice ? ' <span class="muted small">· chưa có giọng</span>' : l.code !== "vi" && l.own_voice === false ? ' <span class="muted small">· giọng Việt</span>' : ""}</label>`).join("");
   return `<section aria-labelledby="plan-h" style="display:flex;flex-direction:column;gap:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 id="plan-h">${editing ? "Sửa lịch" : "Chạy tự động"}</h2>
       <span class="chip ${auto.ai_available ? "ok" : "warn"}">${auto.ai_available ? "AI viết content sẵn sàng" : "AI chưa có key · chỉ dùng kho"}</span></div>
     <div class="grid2">
       <div><label class="f" for="p-name">Tên lịch</label><input id="p-name" class="in" value="${esc(s.name)}"></div>
-      <div><label class="f" for="p-count">Số video mỗi ngôn ngữ / lần chạy</label><input id="p-count" class="in" type="number" min="1" max="50" value="${s.count}"></div>
+      <div><label class="f" for="p-count">Số video / lần chạy</label><input id="p-count" class="in" type="number" min="1" max="50" value="${s.count}"></div>
     </div>
     <div><span class="f">Ngôn ngữ xuất video <span class="muted" id="lang-n"></span></span><div class="tabs">${langChips}</div>
-      <p class="muted small" style="margin:4px 0 0">Mỗi ngôn ngữ = 1 video riêng: lời HuyK + phụ đề đúng tiếng đó. Chọn nhiều tiếng thì cùng 1 sản phẩm sẽ lấy các đoạn footage khác nhau cho từng bản. Outro HuyK và logo chỉ ghép cho bản tiếng Việt; các nước khác bỏ outro trên tuyến A4 và không hiện logo.</p></div>
+      <p class="muted small" style="margin:4px 0 0">Một lịch = một tiếng (lời HuyK + phụ đề đúng tiếng đó). Muốn thêm tiếng khác thì tạo lịch mới. Outro HuyK và logo chỉ trên bản tiếng Việt.</p></div>
     <div><label class="f" for="p-voice">Giọng đọc</label><select id="p-voice" class="in">
       <option value="" ${!curVoice ? "selected" : ""}>Tự động theo ngôn ngữ (HuyK chuẩn theo từng thứ tiếng)</option>
       ${voiceOptions}
     </select>
       <p class="muted small" style="margin:4px 0 0">Mặc định tự động chọn giọng HuyK theo từng ngôn ngữ xuất (HuyK VN cho tiếng Việt, HuyK USA cho tiếng Anh...). Chọn giọng cố định nếu muốn áp dụng cho toàn bộ video.</p></div>
-    <div><span class="f">Nhóm content</span><div class="tabs">${checks("fam", Object.keys(auto.families), s.families, (f) => auto.families[f])}</div></div>
-    ${renderA4Route(auto, (s.families || []).includes("A4"))}
+    <div><label class="f" for="p-music">Nhạc nền</label><select id="p-music" class="in">
+      <option value="" ${!(s.music_track) ? "selected" : ""}>Bỏ trống · random mỗi video</option>
+      ${(auto.music || []).map((m) => `<option value="${esc(m.id)}" ${s.music_track === m.id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}
+    </select>
+      <p class="muted small" style="margin:4px 0 0">Không chọn = mỗi video bốc một bài khác trong kho Nhạc. Chọn một bài thì mọi video trong lịch dùng bài đó.</p></div>
+    <div><span class="f">Nhóm content</span><div class="tabs">${radios("fam", Object.keys(auto.families), fam, (f) => auto.families[f])}</div>
+      <p class="muted small" style="margin:4px 0 0">Một lịch = một tuyến (A1…A5). Chọn A4 mới khóa footage theo công đoạn chế tác. Muốn chạy tuyến khác thì tạo lịch riêng.</p></div>
+    ${renderA4Route(auto, fam === "A4")}
     <div><span class="f">Chủ đề (bỏ trống = tất cả)</span><div class="tabs">${checks("topic", auto.topics, s.topics)}</div></div>
     <div><label class="f" for="p-mode">Nguồn content</label><select id="p-mode" class="in">${Object.entries(MODES).map(([k, v]) =>
       `<option value="${k}" ${s.content_mode === k ? "selected" : ""}>${v}</option>`).join("")}</select>
       <p class="muted small" id="mode-hint" style="margin:6px 0 0">${esc(MODE_HINT[s.content_mode] || MODE_HINT.mix)}</p>
       <div id="mix-box" style="display:${s.content_mode === "library" ? "none" : "flex"};flex-direction:column;gap:8px;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--pane-2, var(--pane))">
-        <p class="muted small" style="margin:0">Mỗi ngôn ngữ xuất chỉ cần <b>1 bài</b> (nhẫn này / vòng này / dây chuyền này) — dùng chung mọi video lần chạy. Đọc rồi duyệt.</p>
-        <div id="mix-gap" class="muted small">Đang kiểm tra kho…</div>
+        <p class="muted small" style="margin:0">Thiếu theo <b>danh mục</b>: mỗi loại sản phẩm (nhẫn / dây chuyền / bông tai…) cần 1 bài, dùng chung mọi video loại đó.</p>
+        <div id="mix-gap" class="muted small"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn pri" type="button" id="p-write-content" ${auto.ai_available ? "" : "disabled"}>Viết 1 bài mới</button>
           <a class="btn sm" href="#/content">Mở Kho content</a>
@@ -287,7 +297,7 @@ function planForm(auto, s) {
           <span class="mono" style="font-size:12.5px">${esc(p.sku)}</span><span class="muted small" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
           <span class="chip">${p.clips} clip</span></label>`).join("") : '<p class="muted small">Chưa có bộ footage sản phẩm trong SOURCE.</p>'}
       </div>
-      <p class="muted small" style="margin:4px 0 0">Không chọn mã nào = chạy xoay vòng tất cả.</p>
+      <p class="muted small" style="margin:4px 0 0">Chỉ hiện mã đủ ≥3 công đoạn chế tác. Không chọn = xoay vòng các mã này.</p>
     </div>
     <div class="grid2">
       <div><label class="f" for="p-times">Giờ chạy (HH:MM, cách nhau dấu phẩy)</label><input id="p-times" class="in" value="${esc(s.times.join(", "))}" placeholder="08:00, 14:00"></div>
@@ -319,6 +329,7 @@ function readForm(el) {
     content_mode: el.querySelector("#p-mode").value, auto_render: el.querySelector("#p-render").checked,
     langs: vals("lang").length ? vals("lang") : ["vi"],
     voice: el.querySelector("#p-voice") ? el.querySelector("#p-voice").value : "",
+    music_track: el.querySelector("#p-music") ? el.querySelector("#p-music").value : "",
     a4_line: a4Line,
     a4_plan: a4Plan,
     hook_text: el.querySelector("#p-hook").checked,
@@ -340,7 +351,7 @@ function schedulesBox(auto) {
     ${list.length ? list.map((s) => `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding:10px 0">
       <div style="flex:1;min-width:180px"><strong>${esc(s.name)}</strong> <span class="chip ${s.enabled ? "ok" : ""}">${s.enabled ? "bật" : "tắt"}</span>
         <div class="muted small">${esc(s.times.join(", ") || "chưa đặt giờ")} · ${s.days.length === 7 ? "mỗi ngày" : s.days.map((d) => DAYS[d]).join(" ")} · ${s.count} video${(s.langs || ["vi"]).length > 1 ? ` × ${s.langs.length} tiếng` : ""} · ${(s.langs || ["vi"]).map((l) => l.toUpperCase()).join(" ")} ·
-        ${s.voice ? `<span class="chip" title="Giọng đọc">🎙 ${esc(voiceMap[s.voice] || s.voice)}</span> · ` : ""}${s.a4_line !== false ? `<span class="chip" title="Khóa footage theo tuyến A4">Tuyến A4</span> · ` : ""}${s.families.map((f) => `<span class="tag ${f}">${f}</span>`).join(" ")} · ${s.skus.length ? s.skus.length + " mã SP" : "mọi mã"} · ${esc(MODES[s.content_mode])}${s.auto_render ? " · render luôn" : ""}</div></div>
+        ${s.voice ? `<span class="chip" title="Giọng đọc">🎙 ${esc(voiceMap[s.voice] || s.voice)}</span> · ` : ""}${s.music_track ? `<span class="chip" title="Nhạc nền">♪ ${esc((auto.music || []).find((m) => m.id === s.music_track)?.name || s.music_track)}</span> · ` : `<span class="muted">nhạc random</span> · `}${s.a4_line !== false ? `<span class="chip" title="Khóa footage theo tuyến A4">Tuyến A4</span> · ` : ""}${s.families.map((f) => `<span class="tag ${f}">${f}</span>`).join(" ")} · ${s.skus.length ? s.skus.length + " mã SP" : "mọi mã"} · ${esc(MODES[s.content_mode])}${s.auto_render ? " · render luôn" : ""}</div></div>
       <button class="btn sm" data-srun="${esc(s.id)}" type="button">Chạy ngay</button>
       <button class="btn sm" data-sedit="${esc(s.id)}" type="button">Sửa</button>
       <button class="btn sm" data-sdel="${esc(s.id)}" type="button">Xoá</button></div>`).join("") : '<p class="muted small">Chưa có lịch. Điền form bên trên rồi bấm "Lưu thành lịch".</p>'}
@@ -517,10 +528,10 @@ export async function render(view, ctx) {
   function bindPlan() {
     const countSku = () => { $("#sku-n").textContent = `(${el.querySelectorAll('input[name="sku"]:checked').length} chọn)`; };
     countSku();
-    $("#sku-list").addEventListener("change", countSku);
+    $("#sku-list").addEventListener("change", () => { countSku(); refreshMixGap(); });
     const countLang = () => {
-      const n = el.querySelectorAll('input[name="lang"]:checked').length || 1;
-      $("#lang-n").textContent = `· ${n} tiếng = ${(Number($("#p-count").value) || 1) * n} video mỗi lần`;
+      const n = Number($("#p-count").value) || 1;
+      $("#lang-n").textContent = `· ${n} video mỗi lần`;
     };
     countLang();
     el.querySelectorAll('input[name="lang"]').forEach((i) => i.addEventListener("change", () => { countLang(); refreshA4Slots(); refreshMixGap(); }));
@@ -529,8 +540,8 @@ export async function render(view, ctx) {
       const q = e.target.value.trim().toLowerCase();
       el.querySelectorAll("#sku-list [data-q]").forEach((l) => { l.style.display = !q || l.dataset.q.includes(q) ? "" : "none"; });
     });
-    $("#sku-all").addEventListener("click", () => { el.querySelectorAll("#sku-list [data-q]").forEach((l) => { if (l.style.display !== "none") l.querySelector("input").checked = true; }); countSku(); });
-    $("#sku-none").addEventListener("click", () => { el.querySelectorAll('input[name="sku"]').forEach((i) => { i.checked = false; }); countSku(); });
+    $("#sku-all").addEventListener("click", () => { el.querySelectorAll("#sku-list [data-q]").forEach((l) => { if (l.style.display !== "none") l.querySelector("input").checked = true; }); countSku(); refreshMixGap(); });
+    $("#sku-none").addEventListener("click", () => { el.querySelectorAll('input[name="sku"]').forEach((i) => { i.checked = false; }); countSku(); refreshMixGap(); });
 
     const refreshA4Slots = () => {
       const listEl = $("#a4-slots-list");
@@ -629,6 +640,7 @@ export async function render(view, ctx) {
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
           <span class="chip">${esc((c.lang || "vi").toUpperCase())}</span>
           <span class="chip">${esc(c.family || "")}</span>
+          ${c.kind ? `<span class="chip">${esc(c.kind)}</span>` : ""}
           <strong style="flex:1">${esc(c.title)}</strong>
         </div>
         <div class="small" style="white-space:pre-wrap;max-height:320px;overflow:auto;line-height:1.5">${esc(c.script || "")}</div>
@@ -641,31 +653,41 @@ export async function render(view, ctx) {
       const box = $("#mix-gap");
       const runBtn = $("#p-run");
       if (!box) return;
+      box.classList.remove("is-busy");
       const rows = data.gap || [];
       const appr = data.gap_approved || rows;
       const pending = data.pending || [];
       const needWrite = rows.filter((m) => m.write);
       const needApprove = appr.filter((m) => m.write);
+      const missN = needApprove.length;
+      const missVid = needApprove.reduce((s, m) => s + (m.videos || m.reuse || 0), 0);
+      const head = rows.length
+        ? (missN ? `<div style="font-weight:600;margin-bottom:4px">Thiếu ${missN} bài content · dùng chung ${missVid} video theo danh mục</div>`
+          : `<div style="font-weight:600;margin-bottom:4px">Đủ bài theo danh mục</div>`)
+        : "";
       box.innerHTML = rows.length
-        ? rows.map((m) => {
-          const a = appr.find((x) => x.lang === m.lang && x.family === m.family) || m;
+        ? head + rows.map((m) => {
+          const a = appr.find((x) => x.lang === m.lang && x.family === m.family && (x.kind || "") === (m.kind || "")) || m;
           const ok = !a.write;
-          const nVid = m.reuse || 1;
-          return `<div>${esc(m.lang.toUpperCase())} · ${esc(m.label || m.lang)} · ${esc(m.family)}: 1 bài dùng chung ${nVid} video${ok ? " · đã có" : a.have < m.have ? " · còn nháp chưa duyệt" : " · thiếu, bấm viết 1 bài"}</div>`;
+          const nVid = m.videos || m.reuse || 1;
+          const kind = m.kind || "sản phẩm";
+          return `<div>${esc((m.lang || "").toUpperCase())} · ${esc(m.family)} · <b>${esc(kind)}</b>: ${nVid} video${ok ? " · đã có 1 bài" : a.have < m.have ? " · còn nháp chưa duyệt" : " · thiếu 1 bài"}</div>`;
         }).join("")
-        : "Chọn ngôn ngữ xuất và nhóm content để tính số bài cần có.";
+        : "Chọn ngôn ngữ xuất, nhóm content và mã sản phẩm để tính bài thiếu theo danh mục.";
       const review = $("#mix-review");
-      if (review && !review.querySelector("[data-mix-fresh]")) {
+      const freshId = data.freshId || "";
+      if (review) {
         review.innerHTML = pending.length
-          ? `<p class="muted small" style="margin:8px 0 4px">Bài nháp chờ duyệt (${pending.length})</p>${pending.slice(0, 4).map((c) => cardHtml(c, false)).join("")}${pending.length > 4 ? `<p class="muted small">+${pending.length - 4} bài khác trong Kho content</p>` : ""}`
+          ? `<p class="muted small" style="margin:8px 0 4px">Cần duyệt ${pending.length} bài — mỗi danh mục một bài (nhẫn, dây chuyền…)</p>${pending.map((c) => cardHtml(c, c.id === freshId)).join("")}`
           : "";
       }
       if (runBtn) runBtn.disabled = false;
       const w = $("#p-write-content");
       const aiMode = $("#p-mode")?.value === "ai";
       if (w) {
-        w.disabled = !auto.ai_available;
-        w.textContent = aiMode || needWrite.length ? "Viết 1 bài mới" : "Viết thêm 1 bài";
+        const canWrite = auto.ai_available && (aiMode || needWrite.length);
+        w.disabled = !canWrite;
+        w.textContent = needWrite.length ? `Viết 1 bài (còn ${needWrite.length})` : (aiMode ? "Viết 1 bài mới" : "Đã đủ bài");
       }
     };
     const refreshMixGap = async () => {
@@ -680,7 +702,7 @@ export async function render(view, ctx) {
       if (runBtn) runBtn.disabled = false;
       if (!show) return;
       try { paintMixGap(await api.automationContentGap(readForm(el))); }
-      catch (err) { const g = $("#mix-gap"); if (g) g.textContent = err.message; }
+      catch (err) { const g = $("#mix-gap"); if (g) { g.classList.remove("is-busy"); g.textContent = err.message; } }
     };
     $("#p-mode").addEventListener("change", refreshMixGap);
     el.querySelectorAll('input[name="topic"]').forEach((i) => i.addEventListener("change", refreshMixGap));
@@ -691,17 +713,16 @@ export async function render(view, ctx) {
       btn.disabled = true;
       const n = $("#mix-gap");
       const prevGap = n ? n.innerHTML : "";
-      if (n) n.textContent = "Đang viết 1 bài mới… khoảng 15–40 giây.";
+      if (n) { n.classList.remove("is-busy"); n.textContent = "Đang viết 1 bài mới… khoảng 15–40 giây."; n.classList.add("is-busy"); }
       try {
         const out = await api.automationPrepareContent(readForm(el));
         const item = out.item || (out.written || [])[0];
-        paintMixGap(out);
-        const review = $("#mix-review");
-        if (item && review) {
-          review.innerHTML = `<div data-mix-fresh="1"><p class="muted small" style="margin:8px 0 4px">Bài vừa viết — đọc rồi duyệt để dùng cho video</p>${cardHtml(item, true)}</div>`;
-          review.scrollIntoView({ block: "nearest" });
-        }
-        toast(item ? "Đã viết xong. Duyệt bài này rồi chạy, hoặc viết bài tiếp." : (out.message || "Kho đã đủ, không cần viết thêm."));
+        paintMixGap({ ...out, freshId: item?.id || "" });
+        $("#mix-review")?.scrollIntoView({ block: "nearest" });
+        const nPend = (out.pending || []).length;
+        toast(item
+          ? (nPend > 1 ? `Đã viết xong. Còn ${nPend} bài cần duyệt (đủ danh mục bên dưới).` : "Đã viết xong. Duyệt bài này rồi chạy.")
+          : (out.message || "Kho đã đủ, không cần viết thêm."));
       } catch (err) {
         if (n) n.innerHTML = prevGap;
         toast(err.message, true);
