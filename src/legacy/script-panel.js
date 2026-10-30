@@ -30,8 +30,8 @@ export function scriptForm(boot) {
       <textarea id="script-input" rows="7" placeholder="Chọn kịch bản trong kho hoặc dán kịch bản…" aria-label="Lời kịch bản"></textarea></div>
     <div class="step-card">${stepHead(2, "Sản phẩm")}
       <select id="product-select" aria-label="Bộ footage sản phẩm"><option value="">— Không gắn sản phẩm —</option>
-        ${boot.products.map((p) => `<option value="${p.sku}">${esc(p.sku)} · ${esc(p.name.replace(/-/g, " "))} (${p.clips} clip · ${(p.step_labels || p.steps || []).length} CĐ)</option>`).join("")}</select>
-      <div id="product-steps" class="hint">Chỉ hiện mã đủ ≥3 công đoạn chế tác.</div>
+        ${boot.products.map((p) => `<option value="${p.sku}">${esc(p.sku)} · ${esc(p.name.replace(/-/g, " "))} (${p.clips} clip)</option>`).join("")}</select>
+      <div id="product-steps" class="hint"></div>
       <label class="field">Tuyến nội dung <select id="line-select" aria-label="Tuyến nội dung"><option value="A4">A4</option></select></label>
       <div id="a4-route"></div>
       <details class="hint"><summary>Tuỳ chọn dựng</summary>
@@ -462,7 +462,7 @@ function showSteps() {
   const p = productOf();
   $("product-steps").textContent = p
     ? `Công đoạn có footage: ${p.step_labels.join(" → ")}${p.has_final ? ` · hoàn thiện ${p.final_clips || 0} clip` : " · chưa có cảnh hoàn thiện"}`
-    : "Chỉ hiện mã đủ ≥3 công đoạn chế tác.";
+    : "";
   if (st.a4 && p && st.a4.sku !== p.sku) st.a4 = null;
   if (!p) st.a4 = null;
   paintA4();
@@ -499,7 +499,7 @@ export async function initScriptPanel() {
     const line = $("line-select").value;
     const picked = $("template-select").value;
     actions.build({ script: $("script-input").value, sku: $("product-select").value,
-      template_id: picked !== "auto" ? picked : "A4",
+      template_id: picked !== "auto" ? picked : (line === "A4" ? "A4_v1" : "auto"),
       line, plan: line === "A4" ? a4Payload() : null, planner: $("planner-select").value, content_id: st.content?.id || null, voice_track: useVoice ? st.voice.audio : null, lang: st.lang,
       preview: true, web_search: $("ill-web").checked, ai_images: $("ill-ai").checked });                               // fast 360p draft while editing; HD from the Xuất menu
   });

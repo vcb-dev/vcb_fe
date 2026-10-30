@@ -46,7 +46,7 @@ export default function LoginPage() {
       <form className="auth-card" onSubmit={submit}>
         <div className="auth-brand">
           <img src="/web/logo-mark.png" alt="" width="22" height="22" />
-          VCB Video Agent
+          VCB Traffic
         </div>
         <p className="auth-sub">Đăng nhập để vào studio</p>
         {auth.status === "error" ? <div className="auth-error">Không kết nối được máy chủ.</div> : null}

@@ -18,8 +18,6 @@ let stFilter = "";              // Content win tab: filter by type
 let voicePick = "";
 const voicePicks = {};             // language -> chosen MiniMax voice id
 let genCount = 5;
-let reviewQueue = [];              // ids from the last "Viết n bài"
-let reviewOpen = false;            // reading modal so new drafts are reviewed before hunting the grid
 
 const IC = {
   mic: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/></svg>',
@@ -117,79 +115,9 @@ function editor(c) {
       <button class="btn pri" type="button" data-save="${isNew ? "" : esc(c.id)}" style="flex:2">${isNew ? "Thêm vào kho" : "Lưu"}</button></div></div>`;
 }
 
-function readScript(c) {
-  const paras = (c.script || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  if (!paras.length) return '<p class="muted">Chưa có lời.</p>';
-  return `<div class="read-script">${paras.map((l) => `<p>${esc(l)}</p>`).join("")}</div>`;
-}
-
-function reviewIds() {
-  return reviewQueue.filter((id) => data.items.some((x) => x.id === id));
-}
-
-function reviewModal() {
-  if (!reviewOpen) return "";
-  const ids = reviewIds();
-  if (!ids.length) return "";
-  let i = ids.indexOf(openId);
-  if (i < 0) i = 0;
-  const c = data.items.find((x) => x.id === ids[i]);
-  if (!c) return "";
-  const lang = itemLang(c);
-  const draft = c.status === "draft";
-  return `<div class="ct-rev" role="dialog" aria-modal="true" aria-labelledby="ct-rev-title">
-    <button type="button" class="ct-rev-scrim" data-rev-close aria-label="Đóng lớp duyệt"></button>
-    <div class="ct-rev-dlg" tabindex="-1">
-      <header class="ct-rev-h">
-        <span class="eyebrow">Duyệt bài mới</span>
-        <span class="chip">${i + 1} / ${ids.length}</span>
-        <span class="sp"></span>
-        <button type="button" class="btn icon" data-rev-close aria-label="Đóng">✕</button>
-      </header>
-      <div class="ct-rev-b">
-        <div class="ct-rev-meta">${famTag(c.family)}<span class="chip mono">${esc(lang.toUpperCase())}</span>
-          <span class="muted small">${esc(c.topic)}</span>
-          ${draft ? '<span class="chip warn">Nháp</span>' : '<span class="chip ok">Đã duyệt</span>'}</div>
-        <h2 id="ct-rev-title">${esc(c.title)}</h2>
-        ${draft ? readScript(c) : `<div class="read-script">${(c.script || "").split(/\n+/).filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`}
-        ${c.caption ? `<details><summary class="small muted">Caption</summary><div class="small" style="white-space:pre-line;margin-top:6px">${esc(c.caption)}</div></details>` : ""}
-      </div>
-      <footer class="ct-rev-f">
-        <button class="btn" type="button" data-rev-step="-1" ${i === 0 ? "disabled" : ""}>Trước</button>
-        <button class="btn" type="button" data-rev-step="1" ${i >= ids.length - 1 ? "disabled" : ""}>Tiếp</button>
-        <span class="sp"></span>
-        ${draft ? `<button class="btn" type="button" data-delete="${esc(c.id)}">Bỏ</button>
-          <button class="btn" type="button" data-edit="${esc(c.id)}">Sửa</button>
-          <button class="btn pri" type="button" data-approve="${esc(c.id)}">Duyệt</button>`
-          : `<button class="btn pri" type="button" data-rev-close>Đóng</button>`}
-      </footer>
-    </div>
-  </div>`;
-}
-
-function reviewDetail(c) {
-  const lang = itemLang(c);
-  return `<div class="dt-head"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${famTag(c.family)}<span class="chip mono">${esc(lang.toUpperCase())}</span>
-      <span class="muted small">${esc(c.topic)}</span><span class="chip warn">Nháp · đọc rồi duyệt</span></span>
-    <h2>${esc(c.title)}</h2></div>
-    <div class="dt-body">
-      <p class="muted small" style="margin:0">Đọc hết bài. Ấn Duyệt mới chia công đoạn, voice và tạo video.</p>
-      ${readScript(c)}
-      ${c.caption ? `<details><summary class="small muted">Caption</summary><div class="small" style="white-space:pre-line;margin-top:6px">${esc(c.caption)}</div></details>` : ""}
-    </div>
-    <div class="dt-foot">
-      <div style="display:flex;gap:8px">
-        <button class="btn" type="button" data-delete="${esc(c.id)}" style="flex:1">Bỏ</button>
-        <button class="btn" type="button" data-edit="${esc(c.id)}">Sửa</button>
-        <button class="btn pri" type="button" data-approve="${esc(c.id)}" style="flex:2">Duyệt</button>
-      </div>
-    </div>`;
-}
-
 function detail(c) {
   if (editing) return editor(c);
   if (!c) return '<div class="empty" style="margin:auto">Chọn một kịch bản để xem lời, voice và tạo video.</div>';
-  if (c.status === "draft") return reviewDetail(c);
   const lines = (c.storyboard || []).length ? c.storyboard.filter((l) => l.vo)
     .map((l) => `<div class="vline"><span class="r">${esc(ROLE[l.role] || l.role)}</span><span>${esc(l.vo)}</span></div>`).join("")
     : (c.lines || c.script.split("\n").filter(Boolean)).map((l, i) => `<div class="vline num"><span class="r">${i + 1}</span><span>${esc(l)}</span></div>`).join("");
@@ -248,7 +176,7 @@ function scriptsView() {
   return `<div class="split">
     <section class="list">${genbar()}${filters()}
       <div class="ct-grid">${list.length ? list.map(card).join("") : '<div class="empty">Chưa có kịch bản phù hợp.</div>'}</div></section>
-    <aside class="side-r" aria-label="Chi tiết kịch bản" id="detail">${detail(openId ? data.items.find((c) => c.id === openId) : null)}</aside></div>${reviewModal()}`;
+    <aside class="side-r" aria-label="Chi tiết kịch bản" id="detail">${detail(openId ? data.items.find((c) => c.id === openId) : null)}</aside></div>`;
 }
 
 function storiesView() {
@@ -309,7 +237,6 @@ export async function render(view, ctx) {
   await load();
   const paint = () => {
     el.innerHTML = header() + (tab === "scripts" ? scriptsView() : tab === "stories" ? storiesView() : topicsView());
-    if (reviewOpen) el.querySelector(".ct-rev-dlg")?.focus();
   };
   paint();
   const reload = async () => { await load(); paint(); ctx.refreshBadges(); };
@@ -353,20 +280,10 @@ export async function render(view, ctx) {
       if (t.dataset.tab) { tab = t.dataset.tab; storyEdit = null; paint(); return; }
       if (t.dataset.fam !== undefined && t.classList.contains("pill")) { f.family = t.dataset.fam; paint(); return; }
       if (t.dataset.cnt) { genCount = Math.max(1, Math.min(10, genCount + Number(t.dataset.cnt))); el.querySelector("#g-count").textContent = genCount; el.querySelector("#g-run").innerHTML = `${IC.pen}Viết ${genCount} bài`; return; }
-      if (t.hasAttribute("data-rev-close")) { reviewOpen = false; paint(); return; }
-      if (t.dataset.revStep) {
-        const ids = reviewIds();
-        let i = ids.indexOf(openId);
-        if (i < 0) i = 0;
-        i = Math.max(0, Math.min(ids.length - 1, i + Number(t.dataset.revStep)));
-        openId = ids[i] || openId;
-        paint();
-        return;
-      }
       if (t.dataset.open) { openId = t.dataset.open; editing = false; el.querySelectorAll(".ct-card").forEach((x) => x.classList.toggle("sel", x.dataset.open === openId)); paintDetail(); return; }
-      if (t.id === "new-manual") { openId = null; editing = true; reviewOpen = false; paintDetail(); return; }
+      if (t.id === "new-manual") { openId = null; editing = true; paintDetail(); return; }
       if (t.hasAttribute("data-cancel")) { editing = false; paintDetail(); return; }
-      if (t.dataset.edit) { editing = true; reviewOpen = false; paint(); return; }
+      if (t.dataset.edit) { editing = true; paintDetail(); return; }
       if (t.dataset.save !== undefined) {
         const body = { title: el.querySelector("#e-title").value, family: el.querySelector("#e-fam").value, topic: el.querySelector("#e-topic").value,
           sku: el.querySelector("#e-sku").value, script: el.querySelector("#e-script").value, caption: el.querySelector("#e-cap").value,
@@ -374,31 +291,8 @@ export async function render(view, ctx) {
         const saved = t.dataset.save ? await api.contentUpdate(t.dataset.save, body) : await api.contentCreate(body);
         openId = saved.id; editing = false; await reload(); toast("Đã lưu kịch bản"); return;
       }
-      if (t.dataset.delete) {
-        if (!confirmDelete(t)) return;
-        const did = t.dataset.delete;
-        await api.contentDelete(did);
-        reviewQueue = reviewQueue.filter((id) => id !== did);
-        const next = reviewIds()[0] || null;
-        openId = next;
-        if (!next) reviewOpen = false;
-        await reload();
-        toast("Đã xoá");
-        return;
-      }
-      if (t.dataset.approve) {
-        const aid = t.dataset.approve;
-        await api.contentUpdate(aid, { status: "approved" });
-        const nextDraft = reviewQueue.filter((id) => id !== aid).find((id) => {
-          const it = data.items.find((x) => x.id === id);
-          return it && it.status === "draft";
-        });
-        openId = nextDraft || aid;
-        if (!nextDraft) reviewOpen = false;
-        await reload();
-        toast(nextDraft ? "Đã duyệt · sang bài tiếp" : "Đã duyệt kịch bản");
-        return;
-      }
+      if (t.dataset.delete) { if (!confirmDelete(t)) return; await api.contentDelete(t.dataset.delete); openId = null; await reload(); toast("Đã xoá"); return; }
+      if (t.dataset.approve) { await api.contentUpdate(t.dataset.approve, { status: "approved" }); await reload(); toast("Đã duyệt kịch bản"); return; }
       if (t.dataset.voice) {
         t.disabled = true; t.textContent = "Đang tạo…";
         const code = t.dataset.voice;
@@ -445,22 +339,15 @@ export async function render(view, ctx) {
         t.disabled = true; t.textContent = `Đang viết ${body.count} bài…`;
         const t0 = Date.now();
         const out = await api.contentGenerate(body);
-        reviewQueue = (out.items || []).map((x) => x.id);
-        openId = reviewQueue[0] || null;
-        reviewOpen = reviewQueue.length > 0;
-        editing = false; f.family = ""; await reload();
-        toast(`Đã viết ${out.items.length} bài nháp · duyệt trên cửa sổ vừa mở${out.errors?.length ? ` · ${out.errors.length} bài lỗi` : ""}`, !!out.errors?.length); return;
+        openId = out.items[0]?.id || null; editing = false; f.family = ""; await reload();
+        toast(`Đã viết ${out.items.length} bài · ${Math.round((Date.now() - t0) / 1000)} giây${out.errors?.length ? ` · ${out.errors.length} bài lỗi` : ""}`, !!out.errors?.length); return;
       }
     } catch (err) {
       toast(err.message, true);
       paint();
     }
   });
-  const onKey = (e) => {
-    if (!el.getClientRects().length) return;
-    if (e.key === "Escape" && reviewOpen) { reviewOpen = false; paint(); return; }
-    if (e.key === "Escape" && editing) { editing = false; paintDetail(); }
-  };
+  const onKey = (e) => { if (!el.getClientRects().length) return; /* screen kept alive but hidden */ if (e.key === "Escape" && editing) { editing = false; paintDetail(); } };
   document.addEventListener("keydown", onKey);
   ctx.setShow?.(() => { if (!editing) reload(); });
   ctx.setCleanup(() => document.removeEventListener("keydown", onKey));
